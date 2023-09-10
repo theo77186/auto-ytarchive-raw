@@ -35,6 +35,8 @@ def get_onlive_message(live_status, video_id=None):
         return "[{video_id}](https://youtu.be/{video_id}) is live at [{channel_name}](https://www.youtube.com/channel/{channel_id})!"
     elif live_status is utils.PlayabilityStatus.MEMBERS_ONLY:
         return "[{video_id}](https://youtu.be/{video_id}) has a members only live at [{channel_name}](https://www.youtube.com/channel/{channel_id})!"
+    elif live_status is utils.PlayabilityStatus.PREMIUM:
+        return "[{video_id}](https://youtu.be/{video_id}) is a Youtube premium only stream live on [{channel_name}](https://www.youtube.com/channel/{channel_id})!"
     elif live_status is utils.PlayabilityStatus.LOGIN_REQUIRED:
         return "[{video_id}](https://youtu.be/{video_id}) is live at [{channel_name}](https://www.youtube.com/channel/{channel_id})!"
     else:

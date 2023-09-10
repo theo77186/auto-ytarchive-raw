@@ -16,12 +16,13 @@ PRIORITY = {
         308, # 1440p60
         271, 264, # 1440p
         335, 303, 299, # 1080p60
+        312, 311, # Premium 1080p and 720p
         248, 169, 137, # 1080p
         334, 302, 298, # 720p60
         247, 136 # 720p
     ],
     "AUDIO": [
-        251, 141, 171, 140, 250, 249, 139
+        251, 141, 171, 140, 250, 249, 139, 234, 233
     ]
 }
 
@@ -80,8 +81,12 @@ def get_json(video_url, channel_id, channel_name, file=None, require_cookie=Fals
 
     with build_req(video_id, require_cookie) as response:
         data = response.read().decode()
-
         match = re.findall(r'"itag":(\d+),"url":"([^"]+)"', data)
+        if match is None:
+            # TODO: Decide whether to grab url and signature cipher or just leave it as None
+            # For premium videos grab the entire url and signatureCipher
+            # Unsure of how to decipher signature
+            match = re.findall(r'"itag":(\d+),.*"signatureCipher":"([^"]+)"', data)
         match = dict(x for x in match)
 
         best = {
@@ -91,7 +96,6 @@ def get_json(video_url, channel_id, channel_name, file=None, require_cookie=Fals
             "version": VERSION,
             "createTime": datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat()
         }
-
         for itag in PRIORITY["VIDEO"]:
             itag = str(itag)
             if itag in match and "noclen" in match[itag]: # With `noclen` param, the video can be downloaded by fregments.

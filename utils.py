@@ -40,6 +40,7 @@ class PlayabilityStatus(Enum):
     LOGIN_REQUIRED = auto()
     UNLISTED = auto()
     PREMIERE = auto()
+    PREMIUM = auto()
 
 
 class RepeatedTimer(object):
@@ -191,6 +192,7 @@ def is_live(channel_id, use_cookie=False, retry=0):
         try:
             re_live = r'\"[a-zA-Z]+\":\"LIVE\"'
             re_member = r'\"[a-zA-Z]+\":\"Members only\"'
+            re_premium = r'\"[a-zA-Z]+\":\"Premium\"'
             re_id = r'\"videoId\":\"([^"]+)'
 
             fragments = re.split('videoRenderer', html)
@@ -204,8 +206,12 @@ def is_live(channel_id, use_cookie=False, retry=0):
                 video_id = re.search(re_id, fragment)
                 video_url = f"https://www.youtube.com/watch?v={video_id[1]}"
                 video_type = PlayabilityStatus.ON_LIVE
+
                 if re.search(re_member, fragment):
                     video_type = PlayabilityStatus.MEMBERS_ONLY
+                elif re.search(re_premium, fragment):
+                    video_type = PlayabilityStatus.PREMIUM
+
             return video_url, video_type
         except AttributeError:
             return False, video_type
@@ -269,9 +275,11 @@ def get_video_status(video_id):
 
         with urlopen(req) as response:
             html = response.read().decode()
-
+            # "label":"Premium"
             if '"offerId":"sponsors_only_video"' in html:
                 return PlayabilityStatus.MEMBERS_ONLY
+            elif '"status":"UNPLAYABLE"' in html and '"label":"Premium"' in html:
+                return PlayabilityStatus.PREMIUM
             elif '"status":"UNPLAYABLE"' in html:
                 return PlayabilityStatus.COPYRIGHTED
             elif '"status":"LOGIN_REQUIRED"' in html and '"reason":"Sign in to confirm your age"' in html:

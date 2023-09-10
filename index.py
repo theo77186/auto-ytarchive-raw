@@ -187,6 +187,8 @@ while True:
                             continue
                         if status is utils.PlayabilityStatus.MEMBERS_ONLY and fetched[channel_name][video_id]["status"] == "MEMBERS_ONLY":
                             continue
+                        if status is utils.PlayabilityStatus.PREMIUM and fetched[channel_name][video_id]["status"] == "PREMIUM":
+                            continue
                         if status is utils.PlayabilityStatus.OFFLINE:
                             continue
 
@@ -303,6 +305,9 @@ while True:
                             if live_status == utils.PlayabilityStatus.MEMBERS_ONLY and const.DISCORD_WEBHOOK_URL_MEMBERS:
                                 discord.send(const.DISCORD_WEBHOOK_URL_MEMBERS, onlive_message, version=const.VERSION)
                                 fetched[channel_name][video_id]["skipOnliveNotify"] = True
+                            elif live_status == utils.PlayabilityStatus.PREMIUM and const.DISCORD_WEBHOOK_URL_PREMIUM:
+                                discord.send(const.DISCORD_WEBHOOK_URL_PREMIUM, onlive_message, version=const.VERSION)
+                                fetched[channel_name][video_id]["skipOnliveNotify"] = True
                             elif live_status == utils.PlayabilityStatus.PREMIERE and const.DISCORD_WEBHOOK_URL_PREMIERE:
                                 discord.send(const.DISCORD_WEBHOOK_URL_PREMIERE, onlive_message, version=const.VERSION)
                                 fetched[channel_name][video_id]["skipOnliveNotify"] = True
@@ -340,7 +345,7 @@ while True:
                             utils.log(f" {message}")
 
                     # If os.system call of python index.py has an extra argument(in this case -d) to trigger download
-                    if const.DOWNLOAD and not fetched[channel_name][video_id]["downloaded"]:
+                    if not fetched[channel_name][video_id]["downloaded"]:
                         # Start the download
                         try:
                             setDownloaded = live_download.download(video_id, live_status)
