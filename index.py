@@ -172,6 +172,9 @@ while True:
                         # Can help catch HTTP 429 Too Many Requests response status code
                         try:
                             status = utils.get_video_status(video_id)
+                        except KeyboardInterrupt as e:
+                            print(f'[ERROR] Forced stop.')
+                            continue
                         except (HTTPError, TimeoutError) as err:
                             print(f'[ERROR] {err}')
                             continue
@@ -219,20 +222,23 @@ while True:
             live_list = []
             try:
                 is_live_tuple = utils.is_live(channel_id)
-                if is_live_tuple[0]:
-                    live_list.append(is_live_tuple)
+                if is_live_tuple:
+                    live_list.extend(is_live_tuple)
+            except KeyboardInterrupt as e:
+                print("[ERROR] Unexpected error, might not be live, Skip saving json")
+                continue
             except Exception as e:
-                print(e)
                 print("[ERROR] Unexpected Error while checking if channel is live")
                 continue
-
             if const.PREMIERE_DOWNLOAD:
                 try:
                     is_premiere_tuple = utils.is_premiere(channel_id)
                     if is_premiere_tuple[0]:
                         live_list.append(is_premiere_tuple)
+                except KeyboardInterrupt as e:
+                    print("[ERROR] Unexpected error, might not be live, Skip saving json")
+                    continue
                 except Exception as e:
-                    print(e)
                     print("[ERROR] Unexpected Error while checking if channel is a premiere")
                     continue
 
@@ -245,11 +251,13 @@ while True:
                     video_id = getjson.get_youtube_id(video_url)
                     try:
                         m3u8_url, require_cookie = getm3u8.get_m3u8(video_url)
-                    except Exception as e:
-                        print(e)
-                        print("\n[ERROR] Unexpected error, might not be live, Skip saving json")
+                        m3u8_id = getm3u8.get_m3u8_id(m3u8_url)
+                    except KeyboardInterrupt as e:
+                        print("[ERROR] Unexpected error, might not be live, Skip saving json")
                         continue
-                    m3u8_id = getm3u8.get_m3u8_id(m3u8_url)
+                    except Exception as e:
+                        print("[ERROR] Unexpected error, might not be live, Skip saving json")
+                        continue
 
                     if live_status == utils.PlayabilityStatus.ON_LIVE and require_cookie:
                         # if live stream is ON_LIVE but cookie is required then stream requires login and assumes
@@ -362,12 +370,28 @@ while True:
                 utils.log(f"[{channel_name}] Not on live.")
 
             utils.log(f" Sleeping for {const.TIME_BETWEEN_CHECK} secs...")
-            time.sleep(const.TIME_BETWEEN_CHECK)
+            try:
+                time.sleep(const.TIME_BETWEEN_CHECK)
+            except KeyboardInterrupt as e:
+                print(e)
+                continue
     except KeyboardInterrupt:
         utils.log(" Forced stop.")
+        print(f"[traceback] {traceback.format_exc()}")
+        clear_expiry()
+        expiry_task = utils.RepeatedTimer(const.TIME_BETWEEN_CLEAR, clear_expiry)
     except Exception as k:
         print(f"[traceback] {traceback.format_exc()}")
         utils.log(" Forced stop.")
+        clear_expiry()
+        expiry_task = utils.RepeatedTimer(const.TIME_BETWEEN_CLEAR, clear_expiry)
+    # finally:
+    #     try:
+    #         clear_expiry()
+    #         expiry_task = utils.RepeatedTimer(const.TIME_BETWEEN_CLEAR, clear_expiry)
+    #     except Exception:
+    #         print("[ERROR] Error running clear tasks")
+    #         print(f"[traceback] {traceback.format_exc()}")
     # finally:
     #     try:
     #         utils.log(" Stopping expiry tasks")

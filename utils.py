@@ -178,6 +178,12 @@ def urlopen(url, retry=0, source_address="random", use_cookie=False):
             return urlopen(url, retry+1, get_pool_ip() if source_address else None, use_cookie)
         else:
             raise e
+    except KeyboardInterrupt as e:
+        if retry < const.HTTP_RETRY:
+            warn(f" Get urllib.error.URLError Error. Trying {retry+1}/{const.HTTP_RETRY}...")
+            return urlopen(url, retry+1, get_pool_ip() if source_address else None, use_cookie)
+        else:
+            raise e
 
 
 def is_live(channel_id, use_cookie=False, retry=0):
@@ -196,25 +202,32 @@ def is_live(channel_id, use_cookie=False, retry=0):
             re_id = r'\"videoId\":\"([^"]+)'
 
             fragments = re.split('videoRenderer', html)
-            video_url = False
+            video_urls = []
             for fragment in fragments:
                 # is_live = re.search(re_live, fragment)
                 is_live_text = True if re.search(re_live, fragment) else False
                 if not is_live_text:
                     continue
 
-                video_id = re.search(re_id, fragment)
-                video_url = f"https://www.youtube.com/watch?v={video_id[1]}"
-                video_type = PlayabilityStatus.ON_LIVE
+                video_ids = list(set(re.findall(re_id, fragment)))
+                for video_id in video_ids:
+                    # For each video check live text again in case other video not live got picked up
+                    is_live_text = True if re.search(re_live, fragment) else False
+                    if not is_live_text:
+                        continue
+                    video_url = f"https://www.youtube.com/watch?v={video_id}"
+                    video_type = PlayabilityStatus.ON_LIVE
 
-                if re.search(re_member, fragment):
-                    video_type = PlayabilityStatus.MEMBERS_ONLY
-                elif re.search(re_premium, fragment):
-                    video_type = PlayabilityStatus.PREMIUM
-
-            return video_url, video_type
+                    if re.search(re_member, fragment):
+                        video_type = PlayabilityStatus.MEMBERS_ONLY
+                    elif re.search(re_premium, fragment):
+                        video_type = PlayabilityStatus.PREMIUM
+                    if not video_url:
+                        video_urls.append((video_url, video_type))
+                    video_urls.append((video_url, video_type))
+            return video_urls
         except AttributeError:
-            return False, video_type
+            return [False, video_type]
         except Exception as e:
             print(e)
             if retry < const.HTTP_RETRY:
@@ -222,7 +235,7 @@ def is_live(channel_id, use_cookie=False, retry=0):
             else:
                 warn(
                     f" Something weird happened on checking Live for {channel_id}...")
-                return False, video_type
+                return [False, video_type]
 
 
 def is_premiere(channel_id, use_cookie=False, retry=0):
@@ -236,6 +249,7 @@ def is_premiere(channel_id, use_cookie=False, retry=0):
         html = response.read().decode()
         try:
             re_live = r'\"[a-zA-Z]+\":\"LIVE\"'
+            # Or r'\"[a-zA-Z]+\":\"Premiere.{0,2}|Upcoming\"'
             re_premiere = r'\"[a-zA-Z]+\":\"Premiere\"'
             re_id = r'\"videoId\":\"([^"]+)'
 
@@ -255,7 +269,7 @@ def is_premiere(channel_id, use_cookie=False, retry=0):
         except AttributeError:
             return False, video_type
         except Exception as e:
-            print(e)
+            print(f"[ERROR] {e}")
             if retry < const.HTTP_RETRY:
                 return is_live(channel_id, use_cookie=use_cookie, retry=retry + 1)  # Try again, sth weird happened
             else:
