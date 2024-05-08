@@ -196,19 +196,18 @@ def is_live(channel_id, use_cookie=False, retry=0):
         video_type = PlayabilityStatus.OFFLINE
         html = response.read().decode()
         try:
-            re_live = r'\"[a-zA-Z]+\":\"LIVE\"'
+            re_live = r'\"[a-zA-Z]{3,10}\":\"LIVE\"'
             re_member = r'\"[a-zA-Z]+\":\"Members only\"'
             re_premium = r'\"[a-zA-Z]+\":\"Premium\"'
             re_id = r'\"videoId\":\"([^"]+)'
 
             fragments = re.split('videoRenderer', html)
-            video_urls = []
+            video_urls = set()
             for fragment in fragments:
                 # is_live = re.search(re_live, fragment)
                 is_live_text = True if re.search(re_live, fragment) else False
                 if not is_live_text:
                     continue
-
                 video_ids = list(set(re.findall(re_id, fragment)))
                 for video_id in video_ids:
                     # For each video check live text again in case other video not live got picked up
@@ -223,9 +222,9 @@ def is_live(channel_id, use_cookie=False, retry=0):
                     elif re.search(re_premium, fragment):
                         video_type = PlayabilityStatus.PREMIUM
                     if not video_url:
-                        video_urls.append((video_url, video_type))
-                    video_urls.append((video_url, video_type))
-            return video_urls
+                        video_urls.add((video_url, video_type))
+                    video_urls.add((video_url, video_type))
+            return list(video_urls)
         except AttributeError:
             return [False, video_type]
         except Exception as e:
@@ -248,7 +247,7 @@ def is_premiere(channel_id, use_cookie=False, retry=0):
         video_type = PlayabilityStatus.OFFLINE
         html = response.read().decode()
         try:
-            re_live = r'\"[a-zA-Z]+\":\"LIVE\"'
+            re_live = r'\"[a-zA-Z]{3,10}\":\"LIVE\"'
             # Or r'\"[a-zA-Z]+\":\"Premiere.{0,2}|Upcoming\"'
             re_premiere = r'\"[a-zA-Z]+\":\"Premiere\"'
             re_id = r'\"videoId\":\"([^"]+)'
