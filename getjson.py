@@ -6,6 +6,8 @@ import base64
 import datetime
 import json
 import utils
+import yt_dlp
+import const
 
 VERSION = "1.5"
 
@@ -75,6 +77,31 @@ def build_req(video_id, use_cookie=False):
     )
     return utils.urlopen(info_req, use_cookie=use_cookie)
 
+def yt_dlp_get_urls(video_id, use_cookie=False):
+    config = {
+        'extractor_args': {'youtube': {'player_client': ['web'], 'skip': ['dash']}},
+        'format': 'bv+ba',
+        'noprogress': True,
+        'quiet': True
+    }
+    if use_cookie and const.COOKIE is not None:
+        config |= { 'cookiefile': const.COOKIE }
+
+    def get_url_format(info, fmt):
+        return [ f['url'] for f in info['formats'] if f['format_id'] == fmt ][0]
+
+    ydl = yt_dlp.YoutubeDL(config)
+    info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+    format_id_list = info["format_id"].split('+')
+    if len(format_id_list) != 2:
+        utils.warn(f"yt-dlp: Expected 2 formats but found {len(format_id_list)} formats")
+        return None
+    video_fmt, audio_fmt = format_id_list
+    video_url = get_url_format(info, video_fmt)
+    audio_url = get_url_format(info, audio_fmt)
+
+    return {video_fmt: video_url}, {audio_fmt: audio_url}
+
 
 def get_json(video_url, channel_id, channel_name, file=None, require_cookie=False):
     video_id = get_youtube_id(video_url)
@@ -111,6 +138,11 @@ def get_json(video_url, channel_id, channel_name, file=None, require_cookie=Fals
                 }
                 break
 
+        try:
+            best["video"], best["audio"] = yt_dlp_get_urls(video_id, require_cookie)
+        except:
+            pass
+
         if best["video"] is None or best["audio"] is None:
             if best["video"] is None:
                 utils.warn(f" {video_id} got empty video sources.")
@@ -124,5 +156,3 @@ def get_json(video_url, channel_id, channel_name, file=None, require_cookie=Fals
             with open(file, "w", encoding="utf8") as f:
                 json.dump(best, f, indent=4, ensure_ascii=False)
         return best
-
-
