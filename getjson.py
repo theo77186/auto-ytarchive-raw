@@ -45,6 +45,11 @@ def get_youtube_id(url):
 
 def get_youtube_video_info(video_id, channel_id, channel_name, html_raw):
     thumbnail_url = parse(r'<link rel="image_src" href="(.+?)">', html_raw) if '<link rel="image_src" href="' in html_raw else f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+    start_timestamp_dict = dict()
+    try:
+        start_timestamp_dict = { "startTimestamp": parse(r'"startTimestamp":"(.+?)"', html_raw) }
+    except:
+        pass
     return {
         "title": parse(r'<meta name="title" content="(.+?)">', html_raw),
         "id": video_id,
@@ -53,8 +58,7 @@ def get_youtube_video_info(video_id, channel_id, channel_name, html_raw):
         "description": parse(r'"description":{"simpleText":"(.+?)"},', html_raw).replace("\\n", "\n") if '"description":{"simpleText":"' in html_raw else "",
         "thumbnail": get_image(thumbnail_url),
         "thumbnailUrl": thumbnail_url,
-        "startTimestamp": parse(r'"startTimestamp":"(.+?)"', html_raw)
-    }
+    } | start_timestamp_dict
 
 
 def get_image(url):
